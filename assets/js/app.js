@@ -1,7 +1,5 @@
 // Core FilmBox interactions
-const USERS_KEY = "filmbox_users";
 const SESSION_KEY = "filmbox_session";
-const ORDERS_KEY = "filmbox_orders";
 
 // API Configuration
 // Для локальной разработки: http://localhost:3000
@@ -205,23 +203,27 @@ function closeAuthModal() {
 const qs = (selector) => document.querySelector(selector);
 const qsa = (selector) => Array.from(document.querySelectorAll(selector));
 
-const storage = {
-  load(key, fallback) {
+// Используем sessionStorage для сессии (живёт пока открыта вкладка)
+const session = {
+  get() {
     try {
-      const raw = localStorage.getItem(key);
-      return raw ? JSON.parse(raw) : fallback;
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
     } catch (err) {
-      console.warn("Storage read error", err);
-      return fallback;
+      console.warn("Session read error", err);
+      return null;
     }
   },
-  save(key, value) {
+  set(user) {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(user));
     } catch (err) {
-      console.warn("Storage write error", err);
+      console.warn("Session write error", err);
     }
   },
+  clear() {
+    sessionStorage.removeItem(SESSION_KEY);
+  }
 };
 
 function setStatus(el, message, type = "success") {
@@ -230,7 +232,7 @@ function setStatus(el, message, type = "success") {
 }
 
 function currentUser() {
-  return storage.load(SESSION_KEY, null);
+  return session.get();
 }
 
 function renderUserBadge() {
@@ -304,7 +306,7 @@ async function registerUser(form) {
     }
 
     // Сохраняем сессию и перезагружаем
-    storage.save(SESSION_KEY, data.user);
+    session.set(data.user);
     location.reload();
   } catch (err) {
     console.error('Register error:', err);
@@ -339,7 +341,7 @@ async function loginUser(form) {
     }
 
     // Сохраняем сессию и перезагружаем
-    storage.save(SESSION_KEY, data.user);
+    session.set(data.user);
     location.reload();
   } catch (err) {
     console.error('Login error:', err);
@@ -348,7 +350,7 @@ async function loginUser(form) {
 }
 
 function logout() {
-  localStorage.removeItem(SESSION_KEY);
+  session.clear();
   renderUserBadge();
   renderMobileUserBadge();
 }
@@ -735,8 +737,8 @@ function initPurchaseFormHandlers(basePrice) {
     e.preventDefault();
     
     // Получаем данные пользователя из сессии
-    const session = storage.load(SESSION_KEY, null);
-    if (!session) {
+    const currentSession = session.get();
+    if (!currentSession) {
       setStatus(status, "Войдите в аккаунт для оформления заказа", "error");
       return;
     }
@@ -756,7 +758,7 @@ function initPurchaseFormHandlers(basePrice) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: session.id,
+          userId: currentSession.id,
           filmTitle,
           filmId,
           format,
@@ -773,21 +775,7 @@ function initPurchaseFormHandlers(basePrice) {
         return;
       }
 
-      // Также сохраняем локально для быстрого отображения
-      const order = {
-        id: data.order.id,
-        product: filmTitle,
-        qty: 1,
-        format,
-        total: priceWithFormat.toFixed(0),
-        email: session.email,
-        customer: session.name,
-        date: new Date().toISOString(),
-      };
-      
-      const orders = storage.load(ORDERS_KEY, []);
-      storage.save(ORDERS_KEY, [order, ...orders]);
-      setStatus(status, "Заказ создан! Мы отправили письмо с деталями на " + session.email);
+      setStatus(status, "Заказ создан! Мы отправили письмо с деталями на " + currentSession.email);
     } catch (err) {
       console.error('Order error:', err);
       setStatus(status, "Ошибка соединения с сервером", "error");
@@ -835,21 +823,15 @@ async function renderOrdersTable() {
   const table = qs("#ordersTable");
   if (!table) return;
   
-  const session = storage.load(SESSION_KEY, null);
-  if (!session || !session.id) {
-    // Если нет сессии с id, показываем локальные заказы
-    const orders = storage.load(ORDERS_KEY, []);
-    if (!orders.length) {
-      table.innerHTML = "<p class=\"text-slate-400\">Нет оформленных заказов пока.</p>";
-      return;
-    }
-    renderOrdersList(table, orders);
+  const currentSession = session.get();
+  if (!currentSession || !currentSession.id) {
+    table.innerHTML = "<p class=\"text-slate-400\">Войдите в аккаунт для просмотра заказов.</p>";
     return;
   }
 
   // Загружаем заказы с сервера
   try {
-    const response = await fetch(`${API_BASE_URL}/api/orders/${session.id}`);
+    const response = await fetch(`${API_BASE_URL}/api/orders/${currentSession.id}`);
     const data = await response.json();
     
     if (!response.ok || !data.orders || data.orders.length === 0) {
@@ -863,19 +845,13 @@ async function renderOrdersTable() {
       format: o.format,
       qty: o.quantity,
       total: o.total,
-      email: session.email
+      email: currentSession.email
     }));
     
     renderOrdersList(table, orders);
   } catch (err) {
     console.error('Load orders error:', err);
-    // При ошибке показываем локальные заказы
-    const orders = storage.load(ORDERS_KEY, []);
-    if (!orders.length) {
-      table.innerHTML = "<p class=\"text-slate-400\">Нет оформленных заказов пока.</p>";
-      return;
-    }
-    renderOrdersList(table, orders);
+    table.innerHTML = "<p class=\"text-slate-400\">Ошибка загрузки заказов. Проверьте соединение с сервером.</p>";
   }
 }
 
@@ -949,7 +925,7 @@ function initBurgerMenu() {
   
   if (logoutBtnMobile) {
     logoutBtnMobile.addEventListener("click", function() {
-      storage.save(SESSION_KEY, null);
+      session.clear();
       renderUserBadge();
       renderMobileUserBadge();
       burgerBtn.classList.remove("active");
@@ -987,10 +963,10 @@ function initContactForm() {
   if (!form) return;
   
   // Автозаполнение данными из аккаунта
-  const session = storage.load(SESSION_KEY, null);
-  if (session) {
-    if (form.contactName) form.contactName.value = session.name || "";
-    if (form.contactEmail) form.contactEmail.value = session.email || "";
+  const currentSession = session.get();
+  if (currentSession) {
+    if (form.contactName) form.contactName.value = currentSession.name || "";
+    if (form.contactEmail) form.contactEmail.value = currentSession.email || "";
   }
   
   form.addEventListener("submit", (e) => {
