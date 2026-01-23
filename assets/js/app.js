@@ -139,10 +139,15 @@ const fallbackProducts = [
   },
 ];
 
-// Для обратной совместимости
-let products = fallbackProducts;
+// Множители цен для разных форматов
+const FORMAT_PRICES = {
+  "digital-4k": 1.0,      // Базовая цена (100%)
+  "digital-hd": 0.7,      // Full HD дешевле на 30%
+  "digital-atmos": 1.2    // Atmos + субтитры дороже на 20%
+};
 
-const formatLabels = {
+// Названия форматов для отображения
+const FORMAT_LABELS = {
   "digital-4k": "Цифровой 4K HDR",
   "digital-hd": "Цифровой Full HD",
   "digital-atmos": "Цифровой Atmos + субтитры",
@@ -691,20 +696,6 @@ async function hydrateProductPage() {
   }, 100);
 }
 
-// Множители цен для разных форматов
-const FORMAT_PRICES = {
-  "digital-4k": 1.0,      // Базовая цена (100%)
-  "digital-hd": 0.7,      // Full HD дешевле на 30%
-  "digital-atmos": 1.2    // Atmos + субтитры дороже на 20%
-};
-
-// Названия форматов для отображения
-const FORMAT_NAMES = {
-  "digital-4k": "Цифровой 4K HDR",
-  "digital-hd": "Цифровой Full HD",
-  "digital-atmos": "Цифровой Atmos + субтитры"
-};
-
 function initPurchaseFormHandlers(basePrice) {
   const form = qs("#purchaseForm");
   const totalEl = qs("#orderTotal");
@@ -723,7 +714,7 @@ function initPurchaseFormHandlers(basePrice) {
     const price = Math.round(basePrice * multiplier);
     
     if (totalEl) totalEl.textContent = `${price} ₽`;
-    if (formatNameEl) formatNameEl.textContent = FORMAT_NAMES[format] || format;
+    if (formatNameEl) formatNameEl.textContent = FORMAT_LABELS[format] || format;
   };
 
   // Слушаем изменения формата
@@ -781,11 +772,6 @@ function initPurchaseFormHandlers(basePrice) {
       setStatus(status, "Ошибка соединения с сервером", "error");
     }
   });
-}
-
-function attachPurchaseForm() {
-  // Эта функция теперь не нужна, логика перенесена в initPurchaseFormHandlers
-  // Оставляем пустой для совместимости
 }
 
 function initPasswordToggle() {
@@ -866,7 +852,7 @@ function renderOrdersList(table, orders) {
           ${orders
             .map(
               (o) => {
-                const formatText = formatLabels[o.format] || o.format;
+                const formatText = FORMAT_LABELS[o.format] || o.format;
                 return `<tr><td>${o.product}</td><td>${formatText}</td><td>${o.qty}</td><td>${o.total} ₽</td><td>${o.email}</td></tr>`;
               }
             )
@@ -995,7 +981,6 @@ async function init() {
   renderProductGrid();
   await renderFilmsCatalog();
   await hydrateProductPage();
-  attachPurchaseForm();
   highlightNav();
   renderOrdersTable();
   initPasswordToggle();
