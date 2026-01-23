@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FilmBox · Контакты</title>
+  <link rel="icon" type="image/png" href="assets/logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+<body data-page="contact" class="antialiased">
+  <header class="sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
+      <a href="index.html" class="flex items-center gap-3">
+        <img src="assets/logo.png" alt="Логотип FilmBox" class="w-11 h-11 rounded-xl border border-slate-200 bg-white object-contain p-1" />
+        <div>
+          <p class="text-xl font-bold">FilmBox</p>
+          <p class="text-slate-400 text-sm hidden sm:block">Магазин фильмов</p>
+        </div>
+      </a>
+      
+      <!-- Бургер-кнопка для мобильных -->
+      <button id="burgerBtn" class="burger-btn md:hidden" aria-label="Открыть меню">
+        <span class="burger-line"></span>
+        <span class="burger-line"></span>
+        <span class="burger-line"></span>
+      </button>
+      
+      <nav class="nav-desktop hidden md:flex items-center gap-4 text-slate-200">
+        <a class="nav-link" href="index.html">Главная</a>
+        <a class="nav-link" href="product.html">Фильмы</a>
+        <a class="nav-link" href="contact.html">Контакты</a>
+      </nav>
+      <div class="auth-buttons hidden md:flex items-center gap-3 text-sm">
+        <span id="userBadge" class="text-slate-300"></span>
+        <div class="flex gap-2">
+          <a id="loginBtnHeader" href="#" class="btn-ghost">Войти</a>
+          <a id="registerBtnHeader" href="#" class="btn-primary">Зарегистрироваться</a>
+        </div>
+        <button id="logoutBtn" class="btn-ghost hidden">Выйти</button>
+      </div>
+    </div>
+    
+    <!-- Мобильное меню -->
+    <div id="mobileMenu" class="mobile-menu hidden">
+      <nav class="flex flex-col gap-2 p-4">
+        <a class="nav-link" href="index.html">Главная</a>
+        <a class="nav-link" href="product.html">Фильмы</a>
+        <a class="nav-link" href="contact.html">Контакты</a>
+        <hr class="border-slate-200 my-2" />
+        <span id="userBadgeMobile" class="text-slate-400 text-sm"></span>
+        <div class="flex flex-col gap-2 mt-2">
+          <a id="loginBtnMobile" href="#" class="btn-ghost text-center">Войти</a>
+          <a id="registerBtnMobile" href="#" class="btn-primary text-center">Зарегистрироваться</a>
+        </div>
+        <button id="logoutBtnMobile" class="btn-ghost hidden mt-2">Выйти</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 pb-16">
+    <section class="mt-10 grid md:grid-cols-2 gap-8 items-start">
+      <!-- Левая колонка: информация о нас -->
+      <div class="space-y-6">
+        <div>
+          <div class="badge">Свяжитесь с нами</div>
+          <h1 class="text-4xl font-bold mt-3">FilmBox · онлайн-магазин</h1>
+        </div>
+        
+        <p class="text-lg text-slate-300 leading-relaxed">
+          Мы всегда на связи!
+        </p>
+        
+        <div class="glass-card p-5 space-y-4">
+          <h3 class="text-xl font-semibold">Контактная информация</h3>
+          <div class="space-y-3 text-slate-300">
+            <div>
+              <p class="font-medium">Телефон</p>
+              <p class="text-slate-400">+7 (999) 555-17-17</p>
+            </div>
+            <div>
+              <p class="font-medium">Email</p>
+              <p class="text-slate-400">hello@filmbox.ru</p>
+            </div>
+            <div>
+              <p class="font-medium">Режим работы</p>
+              <p class="text-slate-400">Онлайн 24/7 — цифровые лицензии мгновенно</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Правая колонка: форма обратной связи -->
+      <div class="glass-card p-6 space-y-4">
+        <h3 class="text-xl font-semibold">Форма обратной связи</h3>
+        <p class="text-slate-400 text-sm">Напишите нам, и мы ответим в ближайшее время</p>
+        <form id="contactForm" class="space-y-4">
+          <input class="form-control" type="text" name="contactName" placeholder="Ваше имя" required />
+          <input class="form-control" type="email" name="contactEmail" placeholder="Email для ответа" required />
+          <select class="form-control" name="contactSubject">
+            <option value="general">Общий вопрос</option>
+            <option value="support">Техническая поддержка</option>
+            <option value="order">Вопрос по заказу</option>
+            <option value="partnership">Сотрудничество</option>
+          </select>
+          <textarea class="form-control" name="contactMessage" rows="4" placeholder="Ваше сообщение..." required></textarea>
+          <button class="btn-primary w-full" type="submit">Отправить сообщение</button>
+          <div id="contactStatus"></div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <div id="authModal" class="modal-backdrop hidden">
+    <div class="modal relative">
+      <button id="authModalClose" class="modal-close absolute top-3 right-3">X</button>
+      <div class="flex gap-2 mb-4">
+        <button id="openLogin" class="btn-ghost" type="button">Войти</button>
+        <button id="openRegister" class="btn-ghost" type="button">Зарегистрироваться</button>
+      </div>
+      <div class="space-y-4">
+        <form id="loginForm" class="space-y-3" autocomplete="on">
+          <input id="loginEmail" class="form-control" type="email" name="loginEmail" placeholder="Email" autocomplete="email" required />
+          <div class="password-wrapper">
+            <input id="loginPassword" class="form-control" type="password" name="loginPassword" placeholder="Пароль" autocomplete="off" required />
+            <button type="button" class="toggle-password" aria-label="Показать пароль">
+              <svg class="eye-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <svg class="eye-off-icon hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+            </button>
+          </div>
+          <button class="btn-primary w-full" type="submit">Войти</button>
+          <p class="text-sm text-slate-400 text-center">Нет аккаунта? <button type="button" class="open-register-switch btn-ghost">Зарегистрироваться</button></p>
+        </form>
+        <form id="registerForm" class="space-y-3 hidden" autocomplete="on">
+          <input id="registerName" class="form-control" type="text" name="name" placeholder="Имя" autocomplete="given-name" required />
+          <input id="registerEmail" class="form-control" type="email" name="email" placeholder="Email" autocomplete="email" required />
+          <div class="password-wrapper">
+            <input id="registerPassword" class="form-control" type="password" name="password" placeholder="Пароль" autocomplete="off" required />
+            <button type="button" class="toggle-password" aria-label="Показать пароль">
+              <svg class="eye-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+              <svg class="eye-off-icon hidden" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.94 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+            </button>
+          </div>
+          <div id="registerStatus" class="status-placeholder"></div>
+          <button class="btn-primary w-full" type="submit">Создать аккаунт</button>
+          <p class="text-sm text-slate-400 text-center">Уже зарегистрированы? <button type="button" class="open-login-switch btn-ghost">Войти</button></p>
+        </form>
+        <div id="authStatus"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="footer mt-16 py-6">
+    <div class="max-w-6xl mx-auto px-4 flex flex-wrap gap-4 items-center justify-between text-sm text-slate-400">
+  <div>© 2026 FilmBox</div>
+      <div class="flex gap-3">
+        <a href="index.html">Главная</a>
+        <a href="product.html">Каталог</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/app.js"></script>
+</body>
+</html>

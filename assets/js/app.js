@@ -1,0 +1,1030 @@
+// Core FilmBox interactions
+const USERS_KEY = "filmbox_users";
+const SESSION_KEY = "filmbox_session";
+const ORDERS_KEY = "filmbox_orders";
+
+// API Configuration
+// Для локальной разработки: http://localhost:3000
+// Для продакшена: замените на URL вашего Railway сервера
+const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:3000'
+  : 'https://your-railway-app.up.railway.app'; // Замените после деплоя
+
+// TMDB API Configuration
+const TMDB_API_KEY = "23fb77a6ffa48c52a48ba4daa9f2bd2e";
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
+
+// Кэш для загруженных фильмов
+let moviesCache = [];
+
+// Проверяет, содержит ли текст только кириллицу, латиницу и базовые символы
+function isReadableTitle(text) {
+  if (!text) return false;
+  // Разрешаем кириллицу, латиницу, цифры, пробелы и базовую пунктуацию
+  return /^[\u0400-\u04FFa-zA-Z0-9\s\-:,.!?'"()]+$/.test(text);
+}
+
+// Функция для получения популярных фильмов
+async function fetchPopularMovies(page = 1) {
+  try {
+    // Получаем данные на русском
+    const response = await fetch(
+      `${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=ru-RU&page=${page}`
+    );
+    const data = await response.json();
+    
+    // Также получаем английские данные для резерва
+    const responseEn = await fetch(
+      `${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=${page}`
+    );
+    const dataEn = await responseEn.json();
+    
+    // Создаём карту английских названий по ID
+    const enTitles = {};
+    dataEn.results.forEach(m => {
+      enTitles[m.id] = m.title;
+    });
+    
+    return data.results.map(movie => transformMovie(movie, enTitles[movie.id]));
+  } catch (error) {
+    console.error("Ошибка загрузки фильмов:", error);
+    return [];
+  }
+}
+
+// Функция для получения деталей фильма
+async function fetchMovieDetails(movieId) {
+  try {
+    // Получаем на русском
+    const response = await fetch(
+      `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=ru-RU`
+    );
+    const data = await response.json();
+    
+    // Получаем английское название
+    const responseEn = await fetch(
+      `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`
+    );
+    const dataEn = await responseEn.json();
+    
+    return transformMovie(data, dataEn.title);
+  } catch (error) {
+    console.error("Ошибка загрузки деталей фильма:", error);
+    return null;
+  }
+}
+
+// Преобразование данных TMDB в формат приложения
+function transformMovie(movie, englishTitle = null) {
+  // Генерируем цену на основе рейтинга и популярности
+  const basePrice = 790;
+  const ratingBonus = Math.round((movie.vote_average || 7) * 50);
+  const price = basePrice + ratingBonus;
+  
+  // Выбираем название: русское если читаемое, иначе английское
+  let title = movie.title;
+  if (!isReadableTitle(title)) {
+    title = englishTitle || movie.original_title || movie.title;
+  }
+  
+  return {
+    id: movie.id,
+    title: title,
+    genre: movie.genres 
+      ? movie.genres.map(g => g.name).join(" / ") 
+      : (movie.genre_ids ? "Фильм" : "Фильм"),
+    price: price,
+    year: movie.release_date ? new Date(movie.release_date).getFullYear() : "N/A",
+    rating: movie.vote_average ? movie.vote_average.toFixed(1) : "N/A",
+    poster: movie.poster_path 
+      ? `${TMDB_IMAGE_BASE}${movie.poster_path}` 
+      : "https://via.placeholder.com/500x750?text=No+Poster",
+    summary: movie.overview || "Описание отсутствует.",
+    backdrop: movie.backdrop_path 
+      ? `${TMDB_IMAGE_BASE}${movie.backdrop_path}` 
+      : null,
+  };
+}
+
+// Статический fallback массив (на случай если API недоступен)
+const fallbackProducts = [
+  {
+    id: "blade",
+    title: "Бегущий по лезвию 2049",
+    genre: "Научная фантастика / Триллер",
+    price: 1190,
+    year: 2017,
+    rating: 8.0,
+    poster: "https://images.unsplash.com/photo-1523798724326-d0c5df28c235?auto=format&fit=crop&w=600&q=80",
+    summary: "Инспектор К раскрывает тайну, способную обрушить остатки цивилизованного мира.",
+  },
+  {
+    id: "dune",
+    title: "Дюна",
+    genre: "Научная фантастика / Драма",
+    price: 1290,
+    year: 2021,
+    rating: 8.1,
+    poster: "https://images.unsplash.com/photo-1542204615-9dd4b3c4e353?auto=format&fit=crop&w=600&q=80",
+    summary: "Пол Атрейдес возглавляет воинов пустыни, чтобы освободить свой народ от гнёта Императора.",
+  },
+  {
+    id: "matrix",
+    title: "Матрица",
+    genre: "Научная фантастика / Экшен",
+    price: 990,
+    year: 1999,
+    rating: 8.7,
+    poster: "https://images.unsplash.com/photo-1509347528160-9a9e33742cdb?auto=format&fit=crop&w=600&q=80",
+    summary: "Хакер узнаёт правду о реальности и вступает в войну против её создателей.",
+  },
+];
+
+// Для обратной совместимости
+let products = fallbackProducts;
+
+const formatLabels = {
+  "digital-4k": "Цифровой 4K HDR",
+  "digital-hd": "Цифровой Full HD",
+  "digital-atmos": "Цифровой Atmos + субтитры",
+};
+
+let authMode = "login";
+
+function showAuthForm(mode) {
+  const loginForm = qs("#loginForm");
+  const registerForm = qs("#registerForm");
+  const loginTab = qs("#openLogin");
+  const registerTab = qs("#openRegister");
+  authMode = mode;
+  if (!loginForm || !registerForm) return;
+  if (mode === "register") {
+    registerForm.classList.remove("hidden");
+    loginForm.classList.add("hidden");
+    if (registerTab && loginTab) {
+      registerTab.classList.remove("btn-ghost");
+      registerTab.classList.add("btn-primary");
+      loginTab.classList.remove("btn-primary");
+      loginTab.classList.add("btn-ghost");
+    }
+  } else {
+    loginForm.classList.remove("hidden");
+    registerForm.classList.add("hidden");
+    if (registerTab && loginTab) {
+      loginTab.classList.remove("btn-ghost");
+      loginTab.classList.add("btn-primary");
+      registerTab.classList.remove("btn-primary");
+      registerTab.classList.add("btn-ghost");
+    }
+  }
+}
+
+function openAuthModal(mode = "login") {
+  const modal = qs("#authModal");
+  if (!modal) return;
+  showAuthForm(mode);
+  modal.classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  const focusEl =
+    mode === "register"
+      ? qs("#registerForm input[name='name']")
+      : qs("#loginForm input[name='loginEmail']");
+  if (focusEl) focusEl.focus();
+}
+
+function closeAuthModal() {
+  const modal = qs("#authModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  document.body.style.overflow = "";
+  const status = qs("#authStatus");
+  if (status) status.innerHTML = "";
+}
+
+const qs = (selector) => document.querySelector(selector);
+const qsa = (selector) => Array.from(document.querySelectorAll(selector));
+
+const storage = {
+  load(key, fallback) {
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? JSON.parse(raw) : fallback;
+    } catch (err) {
+      console.warn("Storage read error", err);
+      return fallback;
+    }
+  },
+  save(key, value) {
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch (err) {
+      console.warn("Storage write error", err);
+    }
+  },
+};
+
+function setStatus(el, message, type = "success") {
+  if (!el) return;
+  el.innerHTML = `<div class="alert ${type === "error" ? "error" : ""}">${message}</div>`;
+}
+
+function currentUser() {
+  return storage.load(SESSION_KEY, null);
+}
+
+function renderUserBadge() {
+  const badge = qs("#userBadge");
+  const logoutBtn = qs("#logoutBtn");
+  const loginBtn = qs("#loginBtnHeader");
+  const registerBtn = qs("#registerBtnHeader");
+  const user = currentUser();
+  if (!badge) return;
+  if (user) {
+    badge.textContent = `Добро пожаловать, ${user.name}`;
+    badge.classList.remove("hidden");
+    if (logoutBtn) logoutBtn.classList.remove("hidden");
+    if (loginBtn) loginBtn.classList.add("hidden");
+    if (registerBtn) registerBtn.classList.add("hidden");
+  } else {
+    badge.textContent = "Гость";
+    if (logoutBtn) logoutBtn.classList.add("hidden");
+    if (loginBtn) loginBtn.classList.remove("hidden");
+    if (registerBtn) registerBtn.classList.remove("hidden");
+  }
+}
+
+async function registerUser(form) {
+  const name = form.name.value.trim();
+  const email = form.email.value.trim().toLowerCase();
+  const password = form.password.value.trim();
+  const status = qs("#registerStatus") || qs("#authStatus");
+
+  if (!name || !email || !password) {
+    setStatus(status, "Заполните все поля", "error");
+    return;
+  }
+  if (!email.includes("@")) {
+    setStatus(status, "Некорректный email", "error");
+    return;
+  }
+  
+  // Валидация пароля (клиентская)
+  if (password.length < 8) {
+    setStatus(status, "Пароль должен содержать минимум 8 символов", "error");
+    return;
+  }
+  if (!/[0-9]/.test(password)) {
+    setStatus(status, "Пароль должен содержать минимум одну цифру", "error");
+    return;
+  }
+  if (!/[A-Z]/.test(password)) {
+    setStatus(status, "Пароль должен содержать минимум одну заглавную букву", "error");
+    return;
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    setStatus(status, "Пароль должен содержать минимум один спец. символ", "error");
+    return;
+  }
+
+  setStatus(status, "Регистрация...", "info");
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setStatus(status, data.error || "Ошибка регистрации", "error");
+      return;
+    }
+
+    // Сохраняем сессию и перезагружаем
+    storage.save(SESSION_KEY, data.user);
+    location.reload();
+  } catch (err) {
+    console.error('Register error:', err);
+    setStatus(status, "Ошибка соединения с сервером", "error");
+  }
+}
+
+async function loginUser(form) {
+  const email = form.loginEmail.value.trim().toLowerCase();
+  const password = form.loginPassword.value.trim();
+  const status = qs("#authStatus");
+
+  if (!email || !password) {
+    setStatus(status, "Заполните все поля", "error");
+    return;
+  }
+
+  setStatus(status, "Вход...", "info");
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      setStatus(status, data.error || "Неверные данные", "error");
+      return;
+    }
+
+    // Сохраняем сессию и перезагружаем
+    storage.save(SESSION_KEY, data.user);
+    location.reload();
+  } catch (err) {
+    console.error('Login error:', err);
+    setStatus(status, "Ошибка соединения с сервером", "error");
+  }
+}
+
+function logout() {
+  localStorage.removeItem(SESSION_KEY);
+  renderUserBadge();
+  renderMobileUserBadge();
+}
+
+function attachAuthHandlers() {
+  const registerForm = qs("#registerForm");
+  const loginForm = qs("#loginForm");
+  const logoutBtn = qs("#logoutBtn");
+  const authModal = qs("#authModal");
+  const modalClose = qs("#authModalClose");
+  const openLogin = qs("#openLogin");
+  const openRegister = qs("#openRegister");
+  const headerLogin = qs("#loginBtnHeader");
+  const headerRegister = qs("#registerBtnHeader");
+  const switchToLogin = qsa(".open-login-switch");
+  const switchToRegister = qsa(".open-register-switch");
+
+  if (registerForm) {
+    registerForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      registerUser(registerForm);
+    });
+  }
+
+  if (loginForm) {
+    loginForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      loginUser(loginForm);
+    });
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", () => logout());
+  }
+
+  if (headerLogin) {
+    headerLogin.addEventListener("click", (e) => {
+      e.preventDefault();
+      openAuthModal("login");
+    });
+  }
+
+  if (headerRegister) {
+    headerRegister.addEventListener("click", (e) => {
+      e.preventDefault();
+      openAuthModal("register");
+    });
+  }
+
+  // Кнопка регистрации на главной странице (hero секция)
+  const heroRegisterBtn = qs("#heroRegisterBtn");
+  if (heroRegisterBtn) {
+    heroRegisterBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openAuthModal("register");
+    });
+  }
+
+  if (openLogin) {
+    openLogin.addEventListener("click", () => openAuthModal("login"));
+  }
+
+  if (openRegister) {
+    openRegister.addEventListener("click", () => openAuthModal("register"));
+  }
+
+  switchToLogin.forEach((btn) =>
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openAuthModal("login");
+    })
+  );
+
+  switchToRegister.forEach((btn) =>
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      openAuthModal("register");
+    })
+  );
+
+  if (modalClose) {
+    modalClose.addEventListener("click", () => closeAuthModal());
+  }
+
+  if (authModal) {
+    authModal.addEventListener("click", (e) => {
+      if (e.target === authModal) closeAuthModal();
+    });
+  }
+}
+
+async function renderProductGrid() {
+  const container = qs("#productGrid");
+  if (!container) return;
+  
+  // Показываем загрузку
+  container.innerHTML = `
+    <div class="col-span-full text-center py-12">
+      <div class="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <p class="mt-4 text-slate-400">Загрузка фильмов...</p>
+    </div>
+  `;
+  
+  // Загружаем популярные фильмы из API (берём только 3 для главной)
+  let movies = await fetchPopularMovies();
+  
+  if (movies.length === 0) {
+    movies = fallbackProducts;
+  }
+  
+  // Берём только первые 3 фильма для главной страницы
+  const topMovies = movies.slice(0, 3);
+  
+  container.innerHTML = topMovies
+    .map(
+      (p) => `
+        <article class="glass-card grid-card p-4 flex flex-col gap-4">
+          <div class="poster-shadow aspect-[2/3] overflow-hidden rounded-lg">
+            <img src="${p.poster}" alt="${p.title}" class="w-full h-full object-cover" loading="lazy" />
+          </div>
+          <div class="flex items-center justify-between text-sm text-slate-400">
+            <span class="line-clamp-1">${p.genre}</span>
+            <span><span class="star-list">★</span> ${p.rating}</span>
+          </div>
+          <h3 class="text-xl font-semibold line-clamp-1">${p.title}</h3>
+          <p class="text-slate-400 text-sm leading-relaxed line-clamp-2">${p.summary}</p>
+          <div class="flex items-center justify-between">
+            <div class="text-lg font-semibold">от ${Math.round(p.price * 0.7)} ₽</div>
+            <a href="product.html#${p.id}" class="btn-ghost">Подробнее</a>
+          </div>
+        </article>
+      `
+    )
+    .join("\n");
+}
+
+async function renderFilmsCatalog() {
+  const catalog = qs("#filmsCatalog");
+  if (!catalog) return;
+  
+  // Показываем загрузку
+  catalog.innerHTML = `
+    <div class="col-span-full text-center py-12">
+      <div class="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+      <p class="mt-4 text-slate-400">Загрузка фильмов...</p>
+    </div>
+  `;
+  
+  // Загружаем фильмы из API
+  const movies = await fetchPopularMovies();
+  
+  if (movies.length === 0) {
+    // Fallback на статические данные
+    moviesCache = fallbackProducts;
+  } else {
+    // Берём только 9 фильмов для страницы каталога
+    moviesCache = movies.slice(0, 9);
+  }
+  
+  // Обновляем глобальный products для совместимости
+  products = moviesCache;
+  
+  catalog.innerHTML = moviesCache
+    .map(
+      (p) => `
+        <div class="glass-card grid-card overflow-hidden cursor-pointer film-card" data-film-id="${p.id}">
+          <div class="poster-shadow aspect-[2/3] overflow-hidden">
+            <img src="${p.poster}" alt="${p.title}" class="w-full h-full object-cover" loading="lazy" />
+          </div>
+          <div class="p-4 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs text-slate-400 line-clamp-1">${p.genre}</span>
+              <span class="text-xs text-slate-400"><span class="star-list">★</span> ${p.rating}</span>
+            </div>
+            <h3 class="font-semibold text-lg line-clamp-1">${p.title}</h3>
+            <p class="text-sm text-slate-400 line-clamp-2">${p.summary}</p>
+            <div class="flex items-center justify-between pt-2">
+              <span class="font-bold text-lg">от ${Math.round(p.price * 0.7)} ₽</span>
+              <span class="text-sm text-slate-400">${p.year}</span>
+            </div>
+            <button class="btn-primary w-full mt-2 select-film-btn" data-film-id="${p.id}">Выбрать</button>
+          </div>
+        </div>
+      `
+    )
+    .join("\n");
+  
+  // Добавляем обработчики для выбора фильма
+  qsa(".select-film-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const filmId = btn.dataset.filmId;
+      selectFilm(filmId);
+    });
+  });
+  
+  qsa(".film-card").forEach((card) => {
+    card.addEventListener("click", () => {
+      const filmId = card.dataset.filmId;
+      selectFilm(filmId);
+    });
+  });
+}
+
+async function selectFilm(filmId) {
+  // Преобразуем в число, т.к. TMDB использует числовые ID
+  const numericId = Number(filmId);
+  
+  // Сначала ищем в кэше
+  let product = moviesCache.find((p) => p.id === numericId || p.id === filmId);
+  
+  // Если не найден в кэше, загружаем из API
+  if (!product && !isNaN(numericId)) {
+    product = await fetchMovieDetails(numericId);
+    if (product) {
+      moviesCache.push(product);
+    }
+  }
+  
+  if (!product) return;
+  
+  // Показываем секцию деталей
+  const productSection = qs("#productSection");
+  
+  if (productSection) productSection.classList.remove("hidden");
+  
+  // Обновляем URL
+  window.location.hash = filmId;
+  
+  // Обновляем детали фильма (форма заказа теперь внутри)
+  await hydrateProductPage();
+  
+  // Прокручиваем к деталям фильма
+  if (productSection) {
+    productSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+async function hydrateProductPage() {
+  const detailWrap = qs("#productDetail");
+  if (!detailWrap) return;
+  
+  const id = window.location.hash.replace("#", "");
+  
+  // Если нет hash, не показываем детали (только каталог)
+  if (!id) return;
+  
+  const numericId = Number(id);
+  
+  // Сначала ищем в кэше
+  let product = moviesCache.find((p) => p.id === numericId || p.id === id);
+  
+  // Если не найден в кэше, загружаем из API
+  if (!product && !isNaN(numericId)) {
+    detailWrap.innerHTML = `
+      <div class="text-center py-12">
+        <div class="inline-block w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        <p class="mt-4 text-slate-400">Загрузка информации о фильме...</p>
+      </div>
+    `;
+    product = await fetchMovieDetails(numericId);
+    if (product) {
+      moviesCache.push(product);
+    }
+  }
+  
+  if (!product) return;
+  
+  // Показываем секцию деталей
+  const productSection = qs("#productSection");
+  if (productSection) productSection.classList.remove("hidden");
+  
+  const price4k = product.price;
+  const priceHd = Math.round(product.price * 0.7);
+  const priceAtmos = Math.round(product.price * 1.2);
+  
+  detailWrap.innerHTML = `
+    <div class="grid md:grid-cols-5 gap-8">
+      <div class="md:col-span-2 poster-shadow">
+        <img src="${product.poster}" alt="${product.title}" class="w-full h-full object-cover" loading="lazy" />
+      </div>
+      <div class="md:col-span-3 space-y-4">
+        <div class="badge">${product.genre} · ${product.year}</div>
+        <h1 class="text-3xl md:text-4xl font-bold">${product.title}</h1>
+        <p class="text-slate-300 leading-relaxed">${product.summary}</p>
+        <div class="flex items-center gap-4 text-lg">
+          <span class="text-2xl font-semibold">от ${priceHd} ₽</span>
+          <span class="text-slate-400"><span class="star-detail">★</span> ${product.rating} рейтинг</span>
+        </div>
+        <div class="glass-card p-4 space-y-3">
+          <h3 class="font-semibold text-lg">Выберите формат</h3>
+          <div class="flex gap-3 flex-wrap" id="formatSelection">
+            <label class="btn-ghost flex items-center gap-2 format-option">
+              <input type="radio" name="filmFormat" value="digital-hd" checked class="accent-blue-500" /> 
+              <span>Цифровой Full HD <span class="text-blue-400 font-semibold">${priceHd} ₽</span></span>
+            </label>
+            <label class="btn-ghost flex items-center gap-2 format-option">
+              <input type="radio" name="filmFormat" value="digital-4k" class="accent-blue-500" /> 
+              <span>Цифровой 4K HDR <span class="text-blue-400 font-semibold">${price4k} ₽</span></span>
+            </label>
+            <label class="btn-ghost flex items-center gap-2 format-option">
+              <input type="radio" name="filmFormat" value="digital-atmos" class="accent-blue-500" /> 
+              <span>Цифровой Atmos + субтитры <span class="text-blue-400 font-semibold">${priceAtmos} ₽</span></span>
+            </label>
+          </div>
+          <p class="text-sm text-slate-400">Мгновенная цифровая выдача после оплаты, без физических носителей.</p>
+        </div>
+        
+        <!-- Оформление заказа -->
+        <div class="glass-card p-4 space-y-3">
+          <h3 class="font-semibold text-lg">Оформление заказа</h3>
+          <form id="purchaseForm" data-price="${product.price}" data-product="${product.title}" class="space-y-3">
+            <div class="flex items-center justify-between text-lg">
+              <span class="text-slate-400">Выбранный формат:</span>
+              <span id="selectedFormatName" class="font-semibold">Цифровой Full HD</span>
+            </div>
+            <div class="flex items-center justify-between text-lg">
+              <span class="text-slate-400">Итого</span>
+              <span id="orderTotal" class="font-semibold text-xl">${priceHd} ₽</span>
+            </div>
+            <div id="purchaseStatus" class="status-placeholder"></div>
+            <button class="btn-primary w-full" type="submit">Купить</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Инициализируем обработчики формы после рендера
+  initPurchaseFormHandlers(product.price);
+  
+  // Прокручиваем к деталям фильма (с небольшой задержкой для рендера)
+  setTimeout(() => {
+    const productSection = qs("#productSection");
+    if (productSection) {
+      productSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, 100);
+}
+
+// Множители цен для разных форматов
+const FORMAT_PRICES = {
+  "digital-4k": 1.0,      // Базовая цена (100%)
+  "digital-hd": 0.7,      // Full HD дешевле на 30%
+  "digital-atmos": 1.2    // Atmos + субтитры дороже на 20%
+};
+
+// Названия форматов для отображения
+const FORMAT_NAMES = {
+  "digital-4k": "Цифровой 4K HDR",
+  "digital-hd": "Цифровой Full HD",
+  "digital-atmos": "Цифровой Atmos + субтитры"
+};
+
+function initPurchaseFormHandlers(basePrice) {
+  const form = qs("#purchaseForm");
+  const totalEl = qs("#orderTotal");
+  const formatNameEl = qs("#selectedFormatName");
+  const status = qs("#purchaseStatus");
+  const formatInputs = qsa('input[name="filmFormat"]');
+  
+  if (!form || formatInputs.length === 0) return;
+
+  const recalc = () => {
+    const selectedFormat = qs('input[name="filmFormat"]:checked');
+    if (!selectedFormat) return;
+    
+    const format = selectedFormat.value;
+    const multiplier = FORMAT_PRICES[format] || 1.0;
+    const price = Math.round(basePrice * multiplier);
+    
+    if (totalEl) totalEl.textContent = `${price} ₽`;
+    if (formatNameEl) formatNameEl.textContent = FORMAT_NAMES[format] || format;
+  };
+
+  // Слушаем изменения формата
+  formatInputs.forEach(input => {
+    input.addEventListener("change", recalc);
+  });
+  
+  recalc();
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    
+    // Получаем данные пользователя из сессии
+    const session = storage.load(SESSION_KEY, null);
+    if (!session) {
+      setStatus(status, "Войдите в аккаунт для оформления заказа", "error");
+      return;
+    }
+    
+    const selectedFormat = qs('input[name="filmFormat"]:checked');
+    const format = selectedFormat ? selectedFormat.value : "digital-hd";
+    const multiplier = FORMAT_PRICES[format] || 1.0;
+    const priceWithFormat = Math.round(basePrice * multiplier);
+    const filmTitle = form.dataset.product || "film";
+    const filmId = form.dataset.filmId || null;
+
+    setStatus(status, "Оформление заказа...", "info");
+
+    try {
+      // Отправляем заказ на сервер
+      const response = await fetch(`${API_BASE_URL}/api/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: session.id,
+          filmTitle,
+          filmId,
+          format,
+          quantity: 1,
+          price: priceWithFormat,
+          total: priceWithFormat
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setStatus(status, data.error || "Ошибка создания заказа", "error");
+        return;
+      }
+
+      // Также сохраняем локально для быстрого отображения
+      const order = {
+        id: data.order.id,
+        product: filmTitle,
+        qty: 1,
+        format,
+        total: priceWithFormat.toFixed(0),
+        email: session.email,
+        customer: session.name,
+        date: new Date().toISOString(),
+      };
+      
+      const orders = storage.load(ORDERS_KEY, []);
+      storage.save(ORDERS_KEY, [order, ...orders]);
+      setStatus(status, "Заказ создан! Мы отправили письмо с деталями на " + session.email);
+    } catch (err) {
+      console.error('Order error:', err);
+      setStatus(status, "Ошибка соединения с сервером", "error");
+    }
+  });
+}
+
+function attachPurchaseForm() {
+  // Эта функция теперь не нужна, логика перенесена в initPurchaseFormHandlers
+  // Оставляем пустой для совместимости
+}
+
+function initPasswordToggle() {
+  qsa(".toggle-password").forEach((btn) => {
+    btn.addEventListener("click", function () {
+      const wrapper = this.closest(".password-wrapper");
+      const input = wrapper.querySelector("input");
+      const eyeIcon = this.querySelector(".eye-icon");
+      const eyeOffIcon = this.querySelector(".eye-off-icon");
+      
+      if (input.type === "password") {
+        input.type = "text";
+        eyeIcon.classList.add("hidden");
+        eyeOffIcon.classList.remove("hidden");
+      } else {
+        input.type = "password";
+        eyeIcon.classList.remove("hidden");
+        eyeOffIcon.classList.add("hidden");
+      }
+    });
+  });
+}
+
+function highlightNav() {
+  const page = document.body.dataset.page;
+  qsa(".nav-link").forEach((link) => {
+    const href = link.getAttribute("href") || "";
+    if (href.includes(page)) {
+      link.classList.add("active");
+    }
+  });
+}
+
+async function renderOrdersTable() {
+  const table = qs("#ordersTable");
+  if (!table) return;
+  
+  const session = storage.load(SESSION_KEY, null);
+  if (!session || !session.id) {
+    // Если нет сессии с id, показываем локальные заказы
+    const orders = storage.load(ORDERS_KEY, []);
+    if (!orders.length) {
+      table.innerHTML = "<p class=\"text-slate-400\">Нет оформленных заказов пока.</p>";
+      return;
+    }
+    renderOrdersList(table, orders);
+    return;
+  }
+
+  // Загружаем заказы с сервера
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/orders/${session.id}`);
+    const data = await response.json();
+    
+    if (!response.ok || !data.orders || data.orders.length === 0) {
+      table.innerHTML = "<p class=\"text-slate-400\">Нет оформленных заказов пока.</p>";
+      return;
+    }
+    
+    // Преобразуем серверные заказы в нужный формат
+    const orders = data.orders.map(o => ({
+      product: o.film_title,
+      format: o.format,
+      qty: o.quantity,
+      total: o.total,
+      email: session.email
+    }));
+    
+    renderOrdersList(table, orders);
+  } catch (err) {
+    console.error('Load orders error:', err);
+    // При ошибке показываем локальные заказы
+    const orders = storage.load(ORDERS_KEY, []);
+    if (!orders.length) {
+      table.innerHTML = "<p class=\"text-slate-400\">Нет оформленных заказов пока.</p>";
+      return;
+    }
+    renderOrdersList(table, orders);
+  }
+}
+
+function renderOrdersList(table, orders) {
+  table.innerHTML = `
+    <div class="table-wrapper">
+      <table class="table-lite">
+        <thead>
+          <tr><th>Товар</th><th>Формат</th><th>Количество</th><th>Сумма</th><th>Email</th></tr>
+        </thead>
+        <tbody>
+          ${orders
+            .map(
+              (o) => {
+                const formatText = formatLabels[o.format] || o.format;
+                return `<tr><td>${o.product}</td><td>${formatText}</td><td>${o.qty}</td><td>${o.total} ₽</td><td>${o.email}</td></tr>`;
+              }
+            )
+            .join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function initBurgerMenu() {
+  const burgerBtn = qs("#burgerBtn");
+  const mobileMenu = qs("#mobileMenu");
+  
+  if (!burgerBtn || !mobileMenu) return;
+  
+  burgerBtn.addEventListener("click", function() {
+    this.classList.toggle("active");
+    mobileMenu.classList.toggle("hidden");
+    mobileMenu.classList.toggle("open");
+  });
+  
+  // Закрыть меню при клике на ссылку
+  qsa("#mobileMenu .nav-link").forEach(function(link) {
+    link.addEventListener("click", function() {
+      burgerBtn.classList.remove("active");
+      mobileMenu.classList.add("hidden");
+      mobileMenu.classList.remove("open");
+    });
+  });
+  
+  // Обработчики для мобильных кнопок авторизации
+  const loginBtnMobile = qs("#loginBtnMobile");
+  const registerBtnMobile = qs("#registerBtnMobile");
+  const logoutBtnMobile = qs("#logoutBtnMobile");
+  
+  if (loginBtnMobile) {
+    loginBtnMobile.addEventListener("click", function(e) {
+      e.preventDefault();
+      burgerBtn.classList.remove("active");
+      mobileMenu.classList.add("hidden");
+      mobileMenu.classList.remove("open");
+      openAuthModal("login");
+    });
+  }
+  
+  if (registerBtnMobile) {
+    registerBtnMobile.addEventListener("click", function(e) {
+      e.preventDefault();
+      burgerBtn.classList.remove("active");
+      mobileMenu.classList.add("hidden");
+      mobileMenu.classList.remove("open");
+      openAuthModal("register");
+    });
+  }
+  
+  if (logoutBtnMobile) {
+    logoutBtnMobile.addEventListener("click", function() {
+      storage.save(SESSION_KEY, null);
+      renderUserBadge();
+      renderMobileUserBadge();
+      burgerBtn.classList.remove("active");
+      mobileMenu.classList.add("hidden");
+      mobileMenu.classList.remove("open");
+    });
+  }
+}
+
+function renderMobileUserBadge() {
+  const badge = qs("#userBadgeMobile");
+  const logoutBtn = qs("#logoutBtnMobile");
+  const loginBtn = qs("#loginBtnMobile");
+  const registerBtn = qs("#registerBtnMobile");
+  const user = currentUser();
+  
+  if (!badge) return;
+  
+  if (user) {
+    badge.textContent = "Привет, " + user.name;
+    if (logoutBtn) logoutBtn.classList.remove("hidden");
+    if (loginBtn) loginBtn.classList.add("hidden");
+    if (registerBtn) registerBtn.classList.add("hidden");
+  } else {
+    badge.textContent = "";
+    if (logoutBtn) logoutBtn.classList.add("hidden");
+    if (loginBtn) loginBtn.classList.remove("hidden");
+    if (registerBtn) registerBtn.classList.remove("hidden");
+  }
+}
+
+function initContactForm() {
+  const form = qs("#contactForm");
+  const status = qs("#contactStatus");
+  if (!form) return;
+  
+  // Автозаполнение данными из аккаунта
+  const session = storage.load(SESSION_KEY, null);
+  if (session) {
+    if (form.contactName) form.contactName.value = session.name || "";
+    if (form.contactEmail) form.contactEmail.value = session.email || "";
+  }
+  
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    
+    const name = form.contactName.value.trim();
+    const email = form.contactEmail.value.trim();
+    const subject = form.contactSubject.value;
+    const message = form.contactMessage.value.trim();
+    
+    if (!name || !email || !message) {
+      setStatus(status, "Заполните все поля", "error");
+      return;
+    }
+    
+    // Имитация отправки (в реальном проекте здесь был бы запрос к серверу)
+    setStatus(status, "Сообщение отправлено! Мы ответим вам в ближайшее время.");
+    form.reset();
+  });
+}
+
+async function init() {
+  renderUserBadge();
+  renderMobileUserBadge();
+  attachAuthHandlers();
+  renderProductGrid();
+  await renderFilmsCatalog();
+  await hydrateProductPage();
+  attachPurchaseForm();
+  highlightNav();
+  renderOrdersTable();
+  initPasswordToggle();
+  initBurgerMenu();
+  initContactForm();
+}
+
+document.addEventListener("DOMContentLoaded", init);
