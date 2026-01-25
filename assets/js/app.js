@@ -320,7 +320,7 @@ async function registerUser(form) {
 async function loginUser(form) {
   const email = form.loginEmail.value.trim().toLowerCase();
   const password = form.loginPassword.value.trim();
-  const status = qs("#authStatus");
+  const status = qs("#loginStatus");
 
   if (!email || !password) {
     setStatus(status, "Заполните все поля", "error");
