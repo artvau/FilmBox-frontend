@@ -15,6 +15,7 @@ const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 
 // Кэш для загруженных фильмов
 let moviesCache = [];
+let products = []; // Алиас для совместимости
 
 // Проверяет, содержит ли текст только кириллицу, латиницу и базовые символы
 function isReadableTitle(text) {
@@ -267,7 +268,7 @@ async function registerUser(form) {
   const name = form.name.value.trim();
   const email = form.email.value.trim().toLowerCase();
   const password = form.password.value.trim();
-  const status = qs("#registerStatus") || qs("#authStatus");
+  const status = qs("#registerStatus");
 
   if (!name || !email || !password) {
     setStatus(status, "Заполните все поля", "error");
