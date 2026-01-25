@@ -113,6 +113,7 @@ header nav a {
   -webkit-transform: translateY(-1px);
   transform: translateY(-1px);
   box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+  color: #ffffff;
 }
 
 .btn-ghost {
