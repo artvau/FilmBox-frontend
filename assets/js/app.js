@@ -294,8 +294,6 @@ async function registerUser(form) {
     return;
   }
 
-  setStatus(status, "Регистрация...", "info");
-
   try {
     const response = await fetch(`${API_BASE_URL}/api/register`, {
       method: 'POST',
@@ -328,8 +326,6 @@ async function loginUser(form) {
     setStatus(status, "Заполните все поля", "error");
     return;
   }
-
-  setStatus(status, "Вход...", "info");
 
   try {
     const response = await fetch(`${API_BASE_URL}/api/login`, {
