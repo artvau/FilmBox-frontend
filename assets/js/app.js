@@ -201,8 +201,10 @@ function closeAuthModal() {
   if (!modal) return;
   modal.classList.add("hidden");
   document.body.style.overflow = "";
-  const status = qs("#authStatus");
-  if (status) status.innerHTML = "";
+  const loginStatus = qs("#loginStatus");
+  const registerStatus = qs("#registerStatus");
+  if (loginStatus) loginStatus.innerHTML = "";
+  if (registerStatus) registerStatus.innerHTML = "";
 }
 
 const qs = (selector) => document.querySelector(selector);
