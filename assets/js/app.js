@@ -3,10 +3,10 @@ const SESSION_KEY = "filmbox_session";
 
 // API Configuration
 // Для локальной разработки: http://localhost:3000
-// Для продакшена: замените на URL вашего Railway сервера
+// Для продакшена: Railway сервер
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:3000'
-  : 'https://your-railway-app.up.railway.app'; // Замените после деплоя
+  : 'https://filmbox-backend-production.up.railway.app';
 
 // TMDB API Configuration
 const TMDB_API_KEY = "23fb77a6ffa48c52a48ba4daa9f2bd2e";
