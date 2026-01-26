@@ -536,9 +536,9 @@ async function renderProductGrid() {
           <div class="poster-shadow aspect-[2/3] overflow-hidden rounded-lg">
             <img src="${p.poster}" alt="${p.title}" class="w-full h-full object-cover" loading="lazy" />
           </div>
-          <div class="flex items-center justify-between text-sm text-slate-400">
-            <span class="line-clamp-1">${p.genre}</span>
-            <span><span class="star-list">★</span> ${p.rating}</span>
+          <div class="flex items-center justify-between gap-2 text-sm text-slate-400">
+            <span class="truncate min-w-0">${p.genre}</span>
+            <span class="flex-shrink-0 whitespace-nowrap"><span class="star-list">★</span> ${p.rating}</span>
           </div>
           <h3 class="text-xl font-semibold line-clamp-1">${p.title}</h3>
           <p class="text-slate-400 text-sm leading-relaxed line-clamp-2">${p.summary}</p>
@@ -583,9 +583,9 @@ async function renderFilmsCatalog() {
             <img src="${p.poster}" alt="${p.title}" class="w-full h-full object-cover" loading="lazy" />
           </div>
           <div class="p-4 space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="text-xs text-slate-400 line-clamp-1">${p.genre}</span>
-              <span class="text-xs text-slate-400"><span class="star-list">★</span> ${p.rating}</span>
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs text-slate-400 truncate min-w-0">${p.genre}</span>
+              <span class="text-xs text-slate-400 flex-shrink-0 whitespace-nowrap"><span class="star-list">★</span> ${p.rating}</span>
             </div>
             <h3 class="font-semibold text-lg line-clamp-1">${p.title}</h3>
             <p class="text-sm text-slate-400 line-clamp-2">${p.summary}</p>
