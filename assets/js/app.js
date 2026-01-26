@@ -74,6 +74,29 @@ async function fetchMovieDetails(movieId) {
 }
 
 // Преобразование данных TMDB в формат приложения
+// Маппинг жанров TMDB (id -> русское имя) на случай, если в ответе есть только genre_ids
+const GENRE_MAP = {
+  28: "Боевик",
+  12: "Приключения",
+  16: "Мультфильм",
+  35: "Комедия",
+  80: "Криминал",
+  99: "Документальный",
+  18: "Драма",
+  10751: "Семейный",
+  14: "Фэнтези",
+  36: "Исторический",
+  27: "Ужасы",
+  10402: "Музыка",
+  9648: "Детектив",
+  10749: "Мелодрама",
+  878: "Научная фантастика",
+  10770: "ТВ фильм",
+  53: "Триллер",
+  10752: "Военный",
+  37: "Вестерн"
+};
+
 function transformMovie(movie, englishTitle = null) {
   // Генерируем цену на основе рейтинга и популярности
   const basePrice = 790;
@@ -89,9 +112,18 @@ function transformMovie(movie, englishTitle = null) {
   return {
     id: movie.id,
     title: title,
-    genre: movie.genres 
-      ? movie.genres.map(g => g.name).join(" / ") 
-      : (movie.genre_ids ? "Фильм" : "Фильм"),
+    // Формируем строку жанров. Если приходит массив объектов genres — используем их.
+    // Если приходят только genre_ids — переводим через GENRE_MAP.
+    genre: (function() {
+      if (movie.genres && movie.genres.length) {
+        return movie.genres.map(g => g.name).join(" / ");
+      }
+      if (movie.genre_ids && movie.genre_ids.length) {
+        const names = movie.genre_ids.map(id => GENRE_MAP[id] || 'Фильм');
+        return names.join(" / ");
+      }
+      return 'Фильм';
+    })(),
     price: price,
     year: movie.release_date ? new Date(movie.release_date).getFullYear() : "N/A",
     rating: movie.vote_average ? movie.vote_average.toFixed(1) : "N/A",
