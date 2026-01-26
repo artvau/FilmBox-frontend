@@ -516,15 +516,23 @@ header nav a {
 @media (max-width: 640px) {
   /* Hero section full width on mobile */
   .hero {
+    display: block !important;
     border-radius: 16px;
     max-width: 100%;
     overflow: hidden;
+    padding: 1rem;
   }
   
   /* Ensure all sections fit screen */
   section {
     max-width: 100%;
     overflow: hidden;
+  }
+  
+  /* Cards should be full width */
+  .grid-card,
+  .glass-card {
+    max-width: 100%;
   }
   
   /* Smaller headings on mobile */
