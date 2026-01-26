@@ -211,8 +211,17 @@ function closeAuthModal() {
 const qs = (selector) => document.querySelector(selector);
 const qsa = (selector) => Array.from(document.querySelectorAll(selector));
 
-// Используем sessionStorage для сессии (живёт пока открыта вкладка)
+// Ключи для хранения в sessionStorage
+const TOKEN_KEY = "filmbox_token";
+
+// Управление JWT токеном и сессией
 const session = {
+  getToken() {
+    return sessionStorage.getItem(TOKEN_KEY);
+  },
+  setToken(token) {
+    sessionStorage.setItem(TOKEN_KEY, token);
+  },
   get() {
     try {
       const raw = sessionStorage.getItem(SESSION_KEY);
@@ -231,8 +240,24 @@ const session = {
   },
   clear() {
     sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(TOKEN_KEY);
   }
 };
+
+// Функция для запросов с JWT токеном
+async function authFetch(url, options = {}) {
+  const token = session.getToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return fetch(url, { ...options, headers });
+}
 
 function setStatus(el, message, type = "success") {
   if (!el) return;
@@ -311,7 +336,8 @@ async function registerUser(form) {
       return;
     }
 
-    // Сохраняем сессию и перезагружаем
+    // Сохраняем токен и данные пользователя
+    session.setToken(data.token);
     session.set(data.user);
     location.reload();
   } catch (err) {
@@ -344,7 +370,8 @@ async function loginUser(form) {
       return;
     }
 
-    // Сохраняем сессию и перезагружаем
+    // Сохраняем токен и данные пользователя
+    session.setToken(data.token);
     session.set(data.user);
     location.reload();
   } catch (err) {
@@ -726,9 +753,10 @@ function initPurchaseFormHandlers(basePrice) {
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     
-    // Получаем данные пользователя из сессии
+    // Проверяем авторизацию через токен
+    const token = session.getToken();
     const currentSession = session.get();
-    if (!currentSession) {
+    if (!token || !currentSession) {
       setStatus(status, "Войдите в аккаунт для оформления заказа", "error");
       return;
     }
@@ -743,12 +771,10 @@ function initPurchaseFormHandlers(basePrice) {
     setStatus(status, "Оформление заказа...", "info");
 
     try {
-      // Отправляем заказ на сервер
-      const response = await fetch(`${API_BASE_URL}/api/orders`, {
+      // Отправляем заказ на сервер с JWT токеном
+      const response = await authFetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: currentSession.id,
           filmTitle,
           filmId,
           format,
@@ -761,6 +787,11 @@ function initPurchaseFormHandlers(basePrice) {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+          setStatus(status, "Сессия истекла. Пожалуйста, войдите снова.", "error");
+          session.clear();
+          return;
+        }
         setStatus(status, data.error || "Ошибка создания заказа", "error");
         return;
       }
@@ -808,16 +839,23 @@ async function renderOrdersTable() {
   const table = qs("#ordersTable");
   if (!table) return;
   
+  const token = session.getToken();
   const currentSession = session.get();
-  if (!currentSession || !currentSession.id) {
+  if (!token || !currentSession) {
     table.innerHTML = "<p class=\"text-slate-400\">Войдите в аккаунт для просмотра заказов.</p>";
     return;
   }
 
-  // Загружаем заказы с сервера
+  // Загружаем заказы с сервера (с JWT авторизацией)
   try {
-    const response = await fetch(`${API_BASE_URL}/api/orders/${currentSession.id}`);
+    const response = await authFetch(`${API_BASE_URL}/api/orders`);
     const data = await response.json();
+    
+    if (response.status === 401 || response.status === 403) {
+      table.innerHTML = "<p class=\"text-slate-400\">Сессия истекла. Пожалуйста, войдите снова.</p>";
+      session.clear();
+      return;
+    }
     
     if (!response.ok || !data.orders || data.orders.length === 0) {
       table.innerHTML = "<p class=\"text-slate-400\">Нет оформленных заказов пока.</p>";
