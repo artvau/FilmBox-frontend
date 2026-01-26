@@ -304,6 +304,7 @@ function renderUserBadge() {
   const logoutBtn = qs("#logoutBtn");
   const loginBtn = qs("#loginBtnHeader");
   const registerBtn = qs("#registerBtnHeader");
+  const heroRegisterBtn = qs("#heroRegisterBtn"); // Кнопка в hero-секции
   const user = currentUser();
   if (!badge) return;
   if (user) {
@@ -312,11 +313,13 @@ function renderUserBadge() {
     if (logoutBtn) logoutBtn.classList.remove("hidden");
     if (loginBtn) loginBtn.classList.add("hidden");
     if (registerBtn) registerBtn.classList.add("hidden");
+    if (heroRegisterBtn) heroRegisterBtn.classList.add("hidden"); // Скрываем в hero
   } else {
     badge.textContent = "Гость";
     if (logoutBtn) logoutBtn.classList.add("hidden");
     if (loginBtn) loginBtn.classList.remove("hidden");
     if (registerBtn) registerBtn.classList.remove("hidden");
+    if (heroRegisterBtn) heroRegisterBtn.classList.remove("hidden"); // Показываем в hero
   }
 }
 
