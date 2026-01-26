@@ -532,19 +532,19 @@ async function renderProductGrid() {
   container.innerHTML = topMovies
     .map(
       (p) => `
-        <article class="glass-card grid-card p-4 flex flex-col gap-4 cursor-pointer home-film-card" data-film-id="${p.id}">
+        <article class="glass-card grid-card p-4 flex flex-col gap-4 cursor-pointer home-film-card overflow-hidden" style="max-width: 100%; box-sizing: border-box;" data-film-id="${p.id}">
           <div class="poster-shadow aspect-[2/3] overflow-hidden rounded-lg">
             <img src="${p.poster}" alt="${p.title}" class="w-full h-full object-cover" loading="lazy" />
           </div>
-          <div class="flex items-center justify-between gap-2 text-sm text-slate-400">
+          <div class="flex items-center justify-between gap-2 text-sm text-slate-400 overflow-hidden">
             <span class="truncate min-w-0">${p.genre}</span>
             <span class="flex-shrink-0 whitespace-nowrap"><span class="star-list">★</span> ${p.rating}</span>
           </div>
           <h3 class="text-xl font-semibold line-clamp-1">${p.title}</h3>
           <p class="text-slate-400 text-sm leading-relaxed line-clamp-2">${p.summary}</p>
-          <div class="flex items-center justify-between">
-            <div class="text-lg font-semibold">от ${Math.round(p.price * 0.7)} ₽</div>
-            <a href="product.html#${p.id}" class="btn-ghost">Подробнее</a>
+          <div class="flex items-center justify-between gap-2 overflow-hidden">
+            <div class="text-lg font-semibold whitespace-nowrap">от ${Math.round(p.price * 0.7)} ₽</div>
+            <a href="product.html#${p.id}" class="btn-ghost whitespace-nowrap">Подробнее</a>
           </div>
         </article>
       `
