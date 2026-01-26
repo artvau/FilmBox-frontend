@@ -502,25 +502,29 @@ header nav a {
 }
 
 @media (max-width: 768px) {
-  .floating-grid { min-height: 260px; }
+  /* Hide floating grid on tablets and mobile */
+  .floating-grid { 
+    display: none; 
+  }
+  
   .float-img {
     width: 120px;
     height: 170px;
   }
-  .float-img:nth-child(2) { left: 18%; }
-  .float-img:nth-child(3) { left: 44%; top: 20px; }
-  .float-img:nth-child(4) { left: 62%; top: 14px; }
 }
 
 @media (max-width: 640px) {
-  /* Hide floating grid on small mobile devices */
-  .floating-grid {
-    display: none;
-  }
-  
   /* Hero section full width on mobile */
   .hero {
     border-radius: 16px;
+    max-width: 100%;
+    overflow: hidden;
+  }
+  
+  /* Ensure all sections fit screen */
+  section {
+    max-width: 100%;
+    overflow: hidden;
   }
   
   /* Smaller headings on mobile */
