@@ -532,7 +532,7 @@ async function renderProductGrid() {
   container.innerHTML = topMovies
     .map(
       (p) => `
-        <article class="glass-card grid-card p-4 flex flex-col gap-4">
+        <article class="glass-card grid-card p-4 flex flex-col gap-4 cursor-pointer home-film-card" data-film-id="${p.id}">
           <div class="poster-shadow aspect-[2/3] overflow-hidden rounded-lg">
             <img src="${p.poster}" alt="${p.title}" class="w-full h-full object-cover" loading="lazy" />
           </div>
@@ -550,6 +550,16 @@ async function renderProductGrid() {
       `
     )
     .join("\n");
+  
+  // Добавляем обработчик клика по карточкам на главной
+  qsa(".home-film-card").forEach((card) => {
+    card.addEventListener("click", (e) => {
+      // Если клик по кнопке "Подробнее" — не перехватываем
+      if (e.target.closest("a")) return;
+      const filmId = card.dataset.filmId;
+      window.location.href = `product.html#${filmId}`;
+    });
+  });
 }
 
 async function renderFilmsCatalog() {
