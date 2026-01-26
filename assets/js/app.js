@@ -8,9 +8,7 @@ const API_BASE_URL = window.location.hostname === 'localhost' || window.location
   ? 'http://localhost:3000'
   : 'https://filmbox-backend-production.up.railway.app';
 
-// TMDB API Configuration
-const TMDB_API_KEY = "23fb77a6ffa48c52a48ba4daa9f2bd2e";
-const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+// TMDB Configuration (только для URL картинок)
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
 
 // Кэш для загруженных фильмов
@@ -24,46 +22,48 @@ function isReadableTitle(text) {
   return /^[\u0400-\u04FFa-zA-Z0-9\s\-:,.!?'"()]+$/.test(text);
 }
 
-// Функция для получения популярных фильмов
+// Функция для получения популярных фильмов (через наш бэкенд-прокси)
 async function fetchPopularMovies(page = 1) {
   try {
-    // Получаем данные на русском
+    // Получаем данные на русском через наш прокси
     const response = await fetch(
-      `${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=ru-RU&page=${page}`
+      `${API_BASE_URL}/api/movies/popular?language=ru-RU&page=${page}`
     );
     const data = await response.json();
     
     // Также получаем английские данные для резерва
     const responseEn = await fetch(
-      `${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&language=en-US&page=${page}`
+      `${API_BASE_URL}/api/movies/popular?language=en-US&page=${page}`
     );
     const dataEn = await responseEn.json();
     
     // Создаём карту английских названий по ID
     const enTitles = {};
-    dataEn.results.forEach(m => {
-      enTitles[m.id] = m.title;
-    });
+    if (dataEn.results) {
+      dataEn.results.forEach(m => {
+        enTitles[m.id] = m.title;
+      });
+    }
     
-    return data.results.map(movie => transformMovie(movie, enTitles[movie.id]));
+    return (data.results || []).map(movie => transformMovie(movie, enTitles[movie.id]));
   } catch (error) {
     console.error("Ошибка загрузки фильмов:", error);
     return [];
   }
 }
 
-// Функция для получения деталей фильма
+// Функция для получения деталей фильма (через наш бэкенд-прокси)
 async function fetchMovieDetails(movieId) {
   try {
-    // Получаем на русском
+    // Получаем на русском через наш прокси
     const response = await fetch(
-      `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=ru-RU`
+      `${API_BASE_URL}/api/movies/${movieId}?language=ru-RU`
     );
     const data = await response.json();
     
     // Получаем английское название
     const responseEn = await fetch(
-      `${TMDB_BASE_URL}/movie/${movieId}?api_key=${TMDB_API_KEY}&language=en-US`
+      `${API_BASE_URL}/api/movies/${movieId}?language=en-US`
     );
     const dataEn = await responseEn.json();
     
