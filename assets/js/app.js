@@ -8,12 +8,11 @@ const API_BASE_URL = window.location.hostname === 'localhost' || window.location
   ? 'http://localhost:3000'
   : 'https://filmbox-backend-production.up.railway.app';
 
-// TMDB Configuration (только для URL картинок)
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500";
+// Изображения загружаются через наш прокси (обход блокировки TMDB)
+const IMAGE_PROXY_BASE = `${API_BASE_URL}/api/image/w500`;
 
 // Кэш для загруженных фильмов
 let moviesCache = [];
-let products = []; // Алиас для совместимости
 
 // Проверяет, содержит ли текст только кириллицу, латиницу и базовые символы
 function isReadableTitle(text) {
@@ -97,11 +96,11 @@ function transformMovie(movie, englishTitle = null) {
     year: movie.release_date ? new Date(movie.release_date).getFullYear() : "N/A",
     rating: movie.vote_average ? movie.vote_average.toFixed(1) : "N/A",
     poster: movie.poster_path 
-      ? `${TMDB_IMAGE_BASE}${movie.poster_path}` 
+      ? `${IMAGE_PROXY_BASE}${movie.poster_path}` 
       : "https://via.placeholder.com/500x750?text=No+Poster",
     summary: movie.overview || "Описание отсутствует.",
     backdrop: movie.backdrop_path 
-      ? `${TMDB_IMAGE_BASE}${movie.backdrop_path}` 
+      ? `${IMAGE_PROXY_BASE}${movie.backdrop_path}` 
       : null,
   };
 }
@@ -541,9 +540,6 @@ async function renderFilmsCatalog() {
     moviesCache = movies.slice(0, 9);
   }
   
-  // Обновляем глобальный products для совместимости
-  products = moviesCache;
-  
   catalog.innerHTML = moviesCache
     .map(
       (p) => `
@@ -693,7 +689,7 @@ async function hydrateProductPage() {
         <!-- Оформление заказа -->
         <div class="glass-card p-4 space-y-3">
           <h3 class="font-semibold text-lg">Оформление заказа</h3>
-          <form id="purchaseForm" data-price="${product.price}" data-product="${product.title}" class="space-y-3">
+          <form id="purchaseForm" data-price="${product.price}" data-product="${product.title}" data-film-id="${product.id}" class="space-y-3">
             <div class="flex items-center justify-between text-lg">
               <span class="text-slate-400">Выбранный формат:</span>
               <span id="selectedFormatName" class="font-semibold">Цифровой Full HD</span>
