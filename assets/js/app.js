@@ -6,7 +6,7 @@ const SESSION_KEY = "filmbox_session";
 // Для продакшена: Railway сервер
 const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
   ? 'http://localhost:3000'
-  : 'http://filmbox-backend-production-1783.up.railway.app/api';
+  : 'https://filmbox-backend-production-1783.up.railway.app/api';
 
 // Изображения загружаются через наш прокси (обход блокировки TMDB)
 const IMAGE_PROXY_BASE = `${API_BASE_URL}/api/image/w500`;
